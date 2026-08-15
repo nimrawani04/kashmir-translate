@@ -1,0 +1,17 @@
+# KATHE 2026 — English → Kashmiri MT pipeline
+# Install torch matching your CUDA build first, e.g.:
+#   pip install torch --index-url https://download.pytorch.org/whl/cu121
+torch>=2.1
+transformers>=4.41,<5
+sentencepiece>=0.1.99
+sacremoses>=0.1.1
+pandas>=2.0
+tqdm>=4.66
+huggingface_hub>=0.23
+IndicTransToolkit>=1.0.2
+
+# Optional — only needed for finetune.py (LoRA stretch goal)
+peft>=0.11
+datasets>=2.19
+accelerate>=0.30
+bitsandbytes>=0.43 ; platform_system == "Linux"
