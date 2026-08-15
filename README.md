@@ -64,15 +64,22 @@ DELIVERABLES:
 
 1. requirements.txt
 
-2. inference.py — loads the model, translates englishdev.csv, writes
+2. inference.py — loads the model, translates englishdev.csv, writes submission.csv
 
-   submission.csv in the required format
+3. rerank.py — candidate ensembling (1B + 200M) + reverse model round-trip reranking
 
-3. README.md documenting the approach (needed for the open-source requirement)
+4. validate_submission.py — pre-flight submission integrity check
 
-4. A LICENSE file (MIT or Apache-2.0)
+5. check_script.py — checks sample submission for Perso-Arabic vs Devanagari script
 
-5. (optional) finetune.py if we attempt the LoRA step
+6. kathe2026_colab.ipynb — end-to-end GPU workflow for Google Colab / Kaggle
+
+7. README.md documenting the winning approach and open-source license
+
+8. A LICENSE file (MIT)
+
+9. (optional) finetune.py for LoRA fine-tuning on BPCC en-kas
+
 
 Set this up as a small git repo I can push publicly to GitHub before the
 
