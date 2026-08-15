@@ -33,8 +33,29 @@ from transformers import AutoModelForSeq2SeqLM, AutoTokenizer
 
 try:
     from IndicTransToolkit.processor import IndicProcessor
-except ImportError:  # older toolkit layout
-    from IndicTransToolkit import IndicProcessor  # type: ignore
+except ImportError:
+    try:
+        from IndicTransToolkit import IndicProcessor  # type: ignore
+    except ImportError:
+        class IndicProcessor:  # type: ignore
+            """Pure Python fallback for IndicProcessor when IndicTransToolkit is not installed."""
+            def __init__(self, inference: bool = True):
+                self.inference = inference
+
+            def preprocess_batch(self, batch: list[str], src_lang: str = "eng_Latn",
+                                 tgt_lang: str = "kas_Arab") -> list[str]:
+                return [f"{src_lang} {tgt_lang} {str(s).strip()}" for s in batch]
+
+            def postprocess_batch(self, batch: list[str], lang: str = "kas_Arab") -> list[str]:
+                cleaned = []
+                for text in batch:
+                    t = str(text).strip()
+                    for tag in [lang, "eng_Latn", "kas_Arab", "kas_Deva"]:
+                        if t.startswith(tag):
+                            t = t[len(tag):].strip()
+                    cleaned.append(t)
+                return cleaned
+
 
 
 FWD_1B = "ai4bharat/indictrans2-en-indic-1B"
