@@ -371,14 +371,14 @@ def main() -> int:
         
         # Memory optimization
         fp16=device == "cuda",
-        gradient_checkpointing=True,
+        gradient_checkpointing=False,  # Disabled - conflicts with LoRA
         optim="adamw_torch",
         
         # Logging and saving
         logging_steps=50,
         save_steps=args.save_steps,
         save_total_limit=3,
-        evaluation_strategy="steps",
+        eval_strategy="steps",  # Fixed: was evaluation_strategy
         eval_steps=args.save_steps,
         
         # Generation (for validation)
