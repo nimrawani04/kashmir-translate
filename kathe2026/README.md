@@ -96,3 +96,12 @@ finetune.py           optional LoRA fine-tuning on BPCC en-kas
 requirements.txt
 LICENSE               MIT
 ```
+
+## Verify the target script
+
+```bash
+python check_script.py path/to/sample_submission.csv
+```
+
+Prints whether the sample submission uses Perso-Arabic or Devanagari and the exact
+`--tgt-lang` value to pass to `inference.py`.
