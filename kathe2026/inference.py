@@ -51,13 +51,15 @@ def parse_args() -> argparse.Namespace:
     p.add_argument("--batch-size", type=int, default=16)
     p.add_argument("--max-new-tokens", type=int, default=256)
     p.add_argument("--num-beams", type=int, default=5)
+    p.add_argument("--lora", default=None, help="path to a LoRA adapter from finetune.py")
     p.add_argument("--device", default=None, help="cuda | cpu (auto by default)")
     p.add_argument("--fp16", action="store_true", help="half precision on GPU")
     p.add_argument("--limit", type=int, default=0, help="smoke-test N rows only")
     return p.parse_args()
 
 
-def load_model(model_id: str, token: str | None, device: str, fp16: bool):
+def load_model(model_id: str, token: str | None, device: str, fp16: bool,
+               lora: str | None = None):
     tok = AutoTokenizer.from_pretrained(model_id, trust_remote_code=True, token=token)
     model = AutoModelForSeq2SeqLM.from_pretrained(
         model_id,
@@ -65,6 +67,11 @@ def load_model(model_id: str, token: str | None, device: str, fp16: bool):
         token=token,
         torch_dtype=torch.float16 if (fp16 and device == "cuda") else torch.float32,
     )
+    if lora:
+        from peft import PeftModel
+
+        model = PeftModel.from_pretrained(model, lora)
+        model = model.merge_and_unload()
     model.to(device).eval()
     return tok, model
 
@@ -105,11 +112,11 @@ def main() -> int:
     sentences = [str(s) if pd.notna(s) else "" for s in df["sentence"].tolist()]
 
     try:
-        tok, model = load_model(args.model, token, device, args.fp16)
+        tok, model = load_model(args.model, token, device, args.fp16, args.lora)
     except Exception as exc:  # noqa: BLE001
         print(f"Could not load {args.model} ({exc}); falling back to {FALLBACK_MODEL}",
               file=sys.stderr)
-        tok, model = load_model(FALLBACK_MODEL, token, device, args.fp16)
+        tok, model = load_model(FALLBACK_MODEL, token, device, args.fp16, args.lora)
 
     ip = IndicProcessor(inference=True)
 
