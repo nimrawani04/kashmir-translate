@@ -79,8 +79,8 @@ def parse_args() -> argparse.Namespace:
     p.add_argument("--no-repeat-ngram-size", type=int, default=0)
     p.add_argument("--alpha", type=float, default=0.5,
                    help="weight of the reverse (round-trip) score vs forward score")
-    p.add_argument("--batch-size", type=int, default=8)
-    p.add_argument("--score-batch-size", type=int, default=32)
+    p.add_argument("--batch-size", type=int, default=4)
+    p.add_argument("--score-batch-size", type=int, default=16)
     p.add_argument("--max-new-tokens", type=int, default=256)
     p.add_argument("--device", default=None)
     p.add_argument("--fp16", action="store_true")
@@ -179,7 +179,10 @@ def main() -> int:
             try:
                 got = gen_nbest(batch, tok, model, ip, args, device)
             except Exception as exc:  # noqa: BLE001 — never lose alignment
-                print(f"batch {i} failed ({exc}); one-by-one", file=sys.stderr)
+                import gc
+                gc.collect()
+                if device == "cuda":
+                    torch.cuda.empty_cache()
                 got = []
                 for s in batch:
                     try:
@@ -189,6 +192,8 @@ def main() -> int:
             for j, cands in enumerate(got):
                 pools[i + j].extend(cands)
         del model
+        import gc
+        gc.collect()
         if device == "cuda":
             torch.cuda.empty_cache()
 

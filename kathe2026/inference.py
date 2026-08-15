@@ -69,7 +69,7 @@ def parse_args() -> argparse.Namespace:
     p.add_argument("--tgt-lang", default="kas_Arab",
                    choices=["kas_Arab", "kas_Deva"],
                    help="Match the script used in sample_submission.csv")
-    p.add_argument("--batch-size", type=int, default=16)
+    p.add_argument("--batch-size", type=int, default=2)
     p.add_argument("--max-new-tokens", type=int, default=256)
     p.add_argument("--num-beams", type=int, default=5)
     p.add_argument("--lora", default=None, help="path to a LoRA adapter from finetune.py")
@@ -148,6 +148,10 @@ def main() -> int:
         try:
             translations.extend(translate_batch(batch, tok, model, ip, args, device))
         except Exception as exc:  # noqa: BLE001 — never lose alignment
+            import gc
+            gc.collect()
+            if device == "cuda":
+                torch.cuda.empty_cache()
             print(f"batch {i} failed ({exc}); retrying one by one", file=sys.stderr)
             for s in batch:
                 try:
