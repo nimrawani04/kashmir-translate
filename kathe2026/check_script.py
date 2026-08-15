@@ -13,7 +13,11 @@ df = pd.read_csv(path)
 col = "kashmiri_text" if "kashmiri_text" in df.columns else df.columns[-1]
 text = "".join(str(x) for x in df[col].head(200).tolist())
 
-arab = sum(0x0600 <= ord(c) <= 0x06FF or 0x0750 <= ord(c) <= 0x077F for c in text)
+arab = sum(
+    0x0600 <= ord(c) <= 0x06FF or 0x0750 <= ord(c) <= 0x077F or
+    0x08A0 <= ord(c) <= 0x08FF or 0xFB50 <= ord(c) <= 0xFDFF or 0xFE70 <= ord(c) <= 0xFEFF
+    for c in text
+)
 deva = sum(0x0900 <= ord(c) <= 0x097F for c in text)
 
 print(f"column={col}  perso-arabic chars={arab}  devanagari chars={deva}")

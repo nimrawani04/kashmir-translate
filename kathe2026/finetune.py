@@ -89,8 +89,7 @@ def main() -> int:
         srcs = ip.preprocess_batch(batch[src_col], src_lang=args.src_lang,
                                    tgt_lang=args.tgt_lang)
         enc = tok(srcs, truncation=True, max_length=args.max_length)
-        with tok.as_target_tokenizer():
-            labels = tok(batch[tgt_col], truncation=True, max_length=args.max_length)
+        labels = tok(text_target=batch[tgt_col], truncation=True, max_length=args.max_length)
         enc["labels"] = labels["input_ids"]
         return enc
 
