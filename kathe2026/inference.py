@@ -71,7 +71,7 @@ def load_model(model_id: str, token: str | None, device: str, fp16: bool):
 
 def translate_batch(batch, tok, model, ip, args, device) -> list[str]:
     prepped = ip.preprocess_batch(batch, src_lang=args.src_lang, tgt_lang=args.tgt_lang)
-    enc = tok(prepped, truncation=True, padding längste := True, max_length=256,
+    enc = tok(prepped, truncation=True, padding=True, max_length=256,
               return_tensors="pt").to(device)
     with torch.inference_mode():
         out = model.generate(
