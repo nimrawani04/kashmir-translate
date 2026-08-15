@@ -116,6 +116,7 @@ def gen_nbest(batch, tok, model, ip, args, device):
             early_stopping=True,
             output_scores=True,
             return_dict_in_generate=True,
+            use_cache=False,
         )
     seqs = tok.batch_decode(out.sequences, skip_special_tokens=True,
                             clean_up_tokenization_spaces=True)

@@ -108,6 +108,7 @@ def translate_batch(batch, tok, model, ip, args, device) -> list[str]:
             num_return_sequences=1,
             max_new_tokens=args.max_new_tokens,
             early_stopping=True,
+            use_cache=False,
         )
     decoded = tok.batch_decode(out, skip_special_tokens=True,
                                clean_up_tokenization_spaces=True)
