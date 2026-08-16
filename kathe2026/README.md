@@ -145,3 +145,50 @@ python check_script.py path/to/sample_submission.csv
 Prints whether the sample submission uses Perso-Arabic or Devanagari and the exact
 `--tgt-lang` value to pass to `inference.py` and `rerank.py`.
 
+
+## Automatic tuning: `sweep.py` (grid search → best submission.csv)
+
+`sweep.py` grid-searches the decoding/reranking knobs against the real
+competition metric — geometric mean of BLEU and chrF++ — on a held-out dev set,
+then rebuilds `submission.csv` with the winning configuration.
+
+```bash
+export HF_TOKEN=hf_xxx
+
+# 1. held-out references from BPCC (never used for training)
+python make_devset.py --n 500 --out-dir data
+
+# 2. grid search + final submission (one command)
+python sweep.py \
+  --dev-input data/dev_src.csv --dev-refs data/dev_ref.csv \
+  --input data/englishdev.csv --output submission.csv \
+  --forward ai4bharat/indictrans2-en-indic-1B \
+            ai4bharat/indictrans2-en-indic-dist-200M \
+  --lp-grid 0.8 1.0 1.2 1.4 \
+  --alpha-grid 0 0.1 0.2 0.3 0.4 0.5 0.6 0.7 0.8 \
+  --mbr-grid 0 0.2 0.4 0.6 0.8 \
+  --nbest 12 --num-beams 12 --fp16
+
+# 3. pre-flight check before uploading
+python validate_submission.py --submission submission.csv --reference data/englishdev.csv
+```
+
+Generation runs once per `--length-penalty`; the alpha × MBR grid is then scored
+from cached numbers, so a dense grid costs seconds. Results land in
+`out/sweep_results.json` (sorted best-first) and the pool cache in
+`out/sweep_cache.json` — delete it to force regeneration.
+
+### What drives the score above 25
+
+| Lever | Effect |
+|---|---|
+| N-best pooling over the 1B + distilled 200M models | wider search space than one beam |
+| Round-trip reranking (`--alpha`) with `indictrans2-indic-en-1B` | picks the most faithful candidate |
+| MBR / chrF++ consensus reranking (`--mbr-weight`) | optimises the scored metric directly |
+| NFC normalisation of every output | Perso-Arabic codepoint variants stop losing chrF++ |
+| kas_Arab script enforcement in candidate selection | prevents catastrophic near-zero rows |
+| Grid search on held-out data | no leaderboard guessing; 3 daily submissions stay free for ablations |
+| Optional LoRA fine-tune (`finetune.py`, passed via `--lora`) | Kashmiri-only adaptation, usually the biggest single jump |
+
+Suggested submission ladder: (1) baseline beam search, (2) swept single-model
+rerank, (3) swept ensemble + rerank + LoRA.
