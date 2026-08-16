@@ -79,6 +79,10 @@ def parse_args() -> argparse.Namespace:
     p.add_argument("--no-repeat-ngram-size", type=int, default=0)
     p.add_argument("--alpha", type=float, default=0.5,
                    help="weight of the reverse (round-trip) score vs forward score")
+    p.add_argument("--mbr-weight", type=float, default=0.3,
+                   help="weight of the MBR/chrF++ consensus score (0 disables)")
+    p.add_argument("--no-script-filter", action="store_true",
+                   help="do not prefer candidates written in the target script")
     p.add_argument("--batch-size", type=int, default=4)
     p.add_argument("--score-batch-size", type=int, default=16)
     p.add_argument("--max-new-tokens", type=int, default=256)
