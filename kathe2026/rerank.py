@@ -202,6 +202,7 @@ def main() -> int:
             torch.cuda.empty_cache()
 
     finals: list[str] = []
+    enforce = not args.no_script_filter and args.tgt_lang == "kas_Arab"
     if args.reverse:
         print(f"[reverse] {args.reverse}")
         rtok, rmodel = load(args.reverse, token, device, args.fp16)
@@ -209,28 +210,32 @@ def main() -> int:
                 tqdm(list(zip(sentences, pools)), desc="rerank")):
             uniq: dict[str, float] = {}
             for text, sc in cands:
+                text = nfc(text)
                 if text and (text not in uniq or sc > uniq[text]):
                     uniq[text] = sc
             if not uniq:
                 finals.append("")
                 continue
-            items = list(uniq.items())
+            texts = list(uniq.keys())
+            fwd = list(uniq.values())
             try:
-                rs = reverse_score([(t, src) for t, _ in items], rtok, rmodel, ip,
+                rs = reverse_score([(t, src) for t in texts], rtok, rmodel, ip,
                                    args, device)
             except Exception as exc:  # noqa: BLE001
                 print(f"score {idx} failed ({exc}); using forward best", file=sys.stderr)
-                finals.append(max(items, key=lambda kv: kv[1])[0])
-                continue
-            best = max(range(len(items)),
-                       key=lambda k: (1 - args.alpha) * items[k][1] + args.alpha * rs[k])
-            finals.append(items[best][0])
+                rs = [0.0] * len(texts)
+            mbr = mbr_scores(texts) if args.mbr_weight else [0.0] * len(texts)
+            finals.append(pick(texts, fwd, rs, mbr, args.alpha, args.mbr_weight, enforce))
     else:
         for cands in pools:
-            finals.append(max(cands, key=lambda kv: kv[1])[0] if cands else "")
+            texts = [nfc(t) for t, _ in cands if t]
+            fwd = [sc for t, sc in cands if t]
+            mbr = mbr_scores(texts) if args.mbr_weight else [0.0] * len(texts)
+            finals.append(pick(texts, fwd, [0.0] * len(texts), mbr,
+                               0.0, args.mbr_weight, enforce))
 
     assert len(finals) == len(df), "row count mismatch — submission misaligned"
-    out = pd.DataFrame({"ID": df["ID"].values, "kashmiri_text": finals})
+    out = pd.DataFrame({"ID": df["ID"].values, "kashmiri_text": [nfc(t) for t in finals]})
     out.to_csv(args.output, index=False, encoding="utf-8")
     print(f"wrote {args.output} ({len(out)} rows)")
     return 0
