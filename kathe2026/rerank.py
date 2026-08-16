@@ -31,6 +31,8 @@ import torch
 from tqdm import tqdm
 from transformers import AutoModelForSeq2SeqLM, AutoTokenizer
 
+from rerank_utils import mbr_scores, nfc, pick
+
 try:
     from IndicTransToolkit.processor import IndicProcessor
 except ImportError:
