@@ -1,107 +1,108 @@
-# Kashmiri Companion
+# KATHE 2026 — English → Kashmiri Machine Translation
 
-I'm building a submission for KATHE 2026, a Kaggle machine-translation
+Submission pipeline for **KATHE 2026** (Kaggle), organized by Gaash Lab, NIT Srinagar
+with the Bureau of Indian Standards. Task: translate English sentences into Kashmiri.
 
-competition (English → Kashmiri), organized by Gaash Lab, NIT Srinagar with
+Licensed under the MIT License to satisfy the competition's open-source requirement.
 
-the Bureau of Indian Standards. Help me build and run the full pipeline.
+## Approach
 
-HARD CONSTRAINTS (competition rules — don't violate these):
+- **Model:** [`ai4bharat/indictrans2-en-indic-1B`](https://huggingface.co/ai4bharat/indictrans2-en-indic-1B),
+  a publicly available pretrained multilingual NMT model already trained on the full
+  BPCC corpus, which includes English↔Kashmiri. Fallback for limited GPU time:
+  `ai4bharat/indictrans2-en-indic-dist-200M`.
+- **Preprocessing:** `IndicTransToolkit`'s `IndicProcessor` handles the language-tag
+  prefixing, normalization and entity placeholders IndicTrans2 expects, and the matching
+  postprocessing (script conversion / detokenization) on the output.
+- **Decoding:** beam search (`num_beams=5`), `max_new_tokens=256`, batched.
+- **Languages:** `src_lang="eng_Latn"`, `tgt_lang="kas_Arab"` (Perso-Arabic Kashmiri).
+  Verify against `sample_submission.csv` on the competition Data tab; if the reference
+  text is Devanagari, rerun with `--tgt-lang kas_Deva`.
+- **No third-party translation API or LLM service is used.** All translation happens
+  locally with open weights, which is what the rules permit.
 
-- May NOT use a third-party translation API/service (Google Translate, an LLM,
+## Setup
 
-  etc.) to directly generate the submission. Disqualifying.
+Clone the repository and set up the Python environment:
 
-- MAY use a publicly available pretrained model (IndicTrans2, NLLB, mBART) as
+```bash
+git clone https://github.com/nimrawani04/kashmir-translate.git
+cd kashmir-translate/kathe2026
 
-  a starting point, and MAY fine-tune it on the BPCC corpus
+python -m venv .venv && source .venv/bin/activate
+pip install torch --index-url https://download.pytorch.org/whl/cu121   # or CPU build
+pip install -r requirements.txt
+```
 
-  (https://huggingface.co/datasets/ai4bharat/BPCC).
+The IndicTrans2 checkpoints (and BPCC, if fine-tuning) are gated on Hugging Face:
+accept the terms on each model/dataset page, then export a token:
 
-- Submission must be a CSV with exactly two columns: ID, kashmiri_text — IDs
+```bash
+export HF_TOKEN=hf_xxxxxxxxxxxxxxxx
+```
 
-  must match englishdev.csv exactly, same order.
+The token is read from the environment only — it is never stored in this repo.
 
-- Deadline is August 17, 2026 — prioritize a working end-to-end pipeline over
+## Run inference
 
-  experimentation.
+Smoke test first (20 rows, seconds on GPU):
 
-- ALL participants (not just winners) must open-source their code under a
+```bash
+cd kathe2026
+python inference.py --limit 20 --output /tmp/smoke.csv
+```
 
-  permissive license (MIT/Apache-2.0) by the deadline to stay eligible.
+Full run:
 
-APPROACH:
+```bash
+cd kathe2026
+python inference.py \
+  --input data/englishdev.csv \
+  --output submission.csv \
+  --model ai4bharat/indictrans2-en-indic-1B \
+  --tgt-lang kas_Arab \
+  --batch-size 16 --fp16
+```
 
-- Use ai4bharat/indictrans2-en-indic-1B via Hugging Face transformers +
+Runtime: roughly 5–15 min for 1,731 sentences on a single mid-range GPU with the 1B
+model; the 200M distilled model is ~4× faster. CPU-only works but is slow (hours).
 
-  IndicTransToolkit (fall back to ai4bharat/indictrans2-en-indic-dist-200M if
+## Output format
 
-  GPU time is limited). Both models and the BPCC dataset are gated on HF —
+`submission.csv` has exactly two columns and preserves input order:
 
-  I'll need to accept terms and pass an HF token.
+```csv
+ID,kashmiri_text
+1,<kashmiri translation>
+2,<kashmiri translation>
+```
 
-- src_lang="eng_Latn", tgt_lang="kas_Arab" (Perso-Arabic Kashmiri script —
+Row count and ID order are asserted against `data/englishdev.csv` before writing, and a
+failing batch is retried sentence-by-sentence so alignment can never drift.
 
-  double check this against sample_submission.csv on the competition's Data
+## Optional: LoRA fine-tuning
 
-  tab before running at scale; switch to "kas_Deva" only if that's what's
+`finetune.py` does light LoRA fine-tuning on the English–Kashmiri portion of
+[BPCC](https://huggingface.co/datasets/ai4bharat/BPCC). This is a stretch goal only —
+the base checkpoint is already trained on BPCC, so the expected gain is small. Skip it
+if the deadline is tight.
 
-  used there).
+```bash
+cd kathe2026
+python finetune.py --max-samples 50000 --epochs 1 --output-dir out/lora-kas
+python inference.py --model ai4bharat/indictrans2-en-indic-1B \
+  --lora out/lora-kas --output submission_lora.csv
+```
 
-- Batch-translate the ~1,731 sentences in englishdev.csv (columns: ID,
+## Repo layout
 
-  sentence, Usage).
-
-- Optional stretch goal only if time allows: light LoRA fine-tuning on the
-
-  Kashmiri portion of BPCC using the scripts in AI4Bharat/IndicTrans2's
-
-  huggingface_interface/ folder — skip if it risks the deadline, since the
-
-  base model is already trained on full BPCC.
-
-DELIVERABLES:
-
-1. requirements.txt
-
-2. inference.py — loads the model, translates englishdev.csv, writes submission.csv
-
-3. rerank.py — candidate ensembling (1B + 200M) + reverse model round-trip reranking
-
-4. validate_submission.py — pre-flight submission integrity check
-
-5. check_script.py — checks sample submission for Perso-Arabic vs Devanagari script
-
-6. kathe2026_colab.ipynb — end-to-end GPU workflow for Google Colab / Kaggle
-
-7. README.md documenting the winning approach and open-source license
-
-8. A LICENSE file (MIT)
-
-9. (optional) finetune.py for LoRA fine-tuning on BPCC en-kas
-
-
-Set this up as a small git repo I can push publicly to GitHub before the
-
-deadline. Ask me for my Hugging Face token rather than hardcoding it.
-
-This project was built with [Lovable](https://lovable.dev).
-
-## Build with Lovable
-
-Continue developing this project in the [Lovable editor](https://lovable.dev/projects/206acc05-2084-4839-88d1-2444c883b122).
-
-- **Ship faster**: describe what you want to build and Lovable handles the code.
-- **Stay in sync**: every change made in Lovable is committed straight to this repository.
-- **Full ownership**: this code is yours. Push to `main` on GitHub and your changes sync back into Lovable, ready for your next prompt.
-
-## Development
-
-Prefer working locally? You need Node.js and npm — [install with nvm](https://github.com/nvm-sh/nvm#installing-and-updating).
-
-```sh
-git clone <this-repository-url>
-cd <repository-name>
-npm i
-npm run dev
+```
+kathe2026/
+├── data/englishdev.csv    competition dev set (ID, sentence, Usage)
+├── inference.py           translate -> submission.csv
+├── validate_submission.py pre-flight check (columns, row count, alignment, non-empty, script)
+├── finetune.py            optional LoRA fine-tuning on BPCC en-kas
+├── check_script.py        target script verifier (kas_Arab vs kas_Deva)
+├── kathe2026_colab.ipynb  Google Colab / Kaggle GPU notebook
+└── requirements.txt
 ```
